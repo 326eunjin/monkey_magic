@@ -7,18 +7,20 @@ Original file is located at
     https://colab.research.google.com/drive/1AhehEbogkcUP_xthWurddQQmpmmo_2hC
 """
 
-# Commented out IPython magic to ensure Python compatibility.
+import pandas as pd
 import numpy as np
-# %matplotlib inline
+import seaborn as sns
 import matplotlib.pyplot as plt
-from PIL import Image
+
 import torch
 from torchvision import datasets, models, transforms
 import torch.nn as nn
 from torch.nn import functional as F
 import torch.optim as optim
+import torchvision
 
-# Kaggle Kernel-dependent
+from PIL import Image
+
 input_path = "/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/"
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -51,9 +53,7 @@ image_datasets = {
     'train': 
     datasets.ImageFolder(input_path + 'train', data_transforms['train']),
     'validation': 
-    datasets.ImageFolder(input_path + 'validation', data_transforms['validation']),
-    'test': 
-    datasets.ImageFolder(input_path + 'test', data_transforms['test'])
+    datasets.ImageFolder(input_path + 'validation', data_transforms['validation'])
 }
 
 dataloaders = {
@@ -61,23 +61,18 @@ dataloaders = {
     torch.utils.data.DataLoader(image_datasets['train'],
                                 batch_size=32,
                                 shuffle=True,
-                                num_workers=0),  
+                                num_workers=0),  # for Kaggle
     'validation':
     torch.utils.data.DataLoader(image_datasets['validation'],
                                 batch_size=32,
                                 shuffle=False,
-                                num_workers=0),  
-    'test':
-    torch.utils.data.DataLoader(image_datasets['test'],
-                                batch_size=32,
-                                shuffle=False,
-                                num_workers=0)  
+                                num_workers=0)  # for Kaggle
 }
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device
 
-model = models.resnet50(pretrained=True).to(device)
+model = models.resnet101(pretrained=True).to(device)
     
 for param in model.parameters():
     param.requires_grad = False   
@@ -91,6 +86,7 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.fc.parameters())
 
 def train_model(model, criterion, optimizer, num_epochs=3):
+    max_score=0
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch+1, num_epochs))
         print('-' * 10)
@@ -126,22 +122,36 @@ def train_model(model, criterion, optimizer, num_epochs=3):
             print('{} loss: {:.4f}, acc: {:.4f}'.format(phase,
                                                         epoch_loss,
                                                         epoch_acc))
+        if(max_score<epoch_acc):
+          torch.save(model.state_dict(), '/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/models/weights(101).h5')
+          print("model saved~")
+          max_score=epoch_acc
     return model
 
-model_trained = train_model(model, criterion, optimizer, num_epochs=30)
+model_trained = train_model(model, criterion, optimizer, num_epochs=50)
 
-!mkdir models
-!mkdir models/pytorch
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-torch.save(model_trained.state_dict(), '/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/models/weights.h5')
+import torch
+from torchvision import datasets, models, transforms
+import torch.nn as nn
+from torch.nn import functional as F
+import torch.optim as optim
+import torchvision
 
+from PIL import Image
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = models.resnet101(weights=None).to(device)
 model.fc = nn.Sequential(
                nn.Linear(2048, 128),
                nn.ReLU(inplace=True),
                nn.Linear(128, 2)).to(device)
 
-model.load_state_dict(torch.load('/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/models/weights.h5'), strict=False)
+model.load_state_dict(torch.load('/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/models/weights(101).h5'), strict=False)
 
 import os
 test_mon= os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/test/Monkeypox")
@@ -151,8 +161,8 @@ print(test_oth)
 classes = os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/test")
 print(classes)
 
-mon_list = [Image.open(input_path +"test/" +classes[0]+"/" + img_path) for img_path in test_mon]
-oth_list = [Image.open(input_path +"test/"+ classes[1]+"/" +img_path) for img_path in test_oth]
+mon_list = [Image.open( "/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/" +"test/" +classes[0]+"/" + img_path) for img_path in test_mon]
+oth_list = [Image.open( "/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/" +"test/"+ classes[1]+"/" +img_path) for img_path in test_oth]
 print(oth_list)
 
 validation_batch1 = torch.stack([data_transforms['test'](img).to(device)
@@ -179,7 +189,6 @@ for i, img in enumerate(mon_list):
     ax.set_title("{:.0f}% monkeypox, {:.0f}% other".format(100*pred_probs[i,0],
                                                             100*pred_probs[i,1]))
     ax.imshow(img)
-    print(100*pred_probs[i,0],100*pred_probs[i,1])
 
 fig, axs = plt.subplots(len(oth_list), 1, figsize=(150, 100))
 for i, img in enumerate(oth_list):
@@ -188,5 +197,4 @@ for i, img in enumerate(oth_list):
     ax.set_title("{:.0f}% monkeypox, {:.0f}% other".format(100*pred_probs2[i,0],
                                                             100*pred_probs2[i,1]))
     ax.imshow(img)
-    print(100*pred_probs2[i,0],100*pred_probs2[i,1])
 
