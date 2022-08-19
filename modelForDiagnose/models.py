@@ -7,21 +7,22 @@ Original file is located at
     https://colab.research.google.com/drive/1AhehEbogkcUP_xthWurddQQmpmmo_2hC
 """
 
+input_path = "/content/drive/MyDrive/machine learning projects/training set/monkey pox/"
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-
+import os
 import torch
 from torchvision import datasets, models, transforms
 import torch.nn as nn
 from torch.nn import functional as F
 import torch.optim as optim
 import torchvision
+import albumentations as A
 
 from PIL import Image
-
-input_path = "/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/"
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
@@ -32,12 +33,6 @@ data_transforms = {
         transforms.Resize((224,224)),
         transforms.RandomAffine(0, shear=10, scale=(0.8,1.2)),
         transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize
-    ]),
-    'validation':
-    transforms.Compose([
-        transforms.Resize((224,224)),
         transforms.ToTensor(),
         normalize
     ]),
@@ -52,8 +47,8 @@ data_transforms = {
 image_datasets = {
     'train': 
     datasets.ImageFolder(input_path + 'train', data_transforms['train']),
-    'validation': 
-    datasets.ImageFolder(input_path + 'validation', data_transforms['validation'])
+    'test': 
+    datasets.ImageFolder(input_path + 'test', data_transforms['test'])
 }
 
 dataloaders = {
@@ -62,8 +57,8 @@ dataloaders = {
                                 batch_size=32,
                                 shuffle=True,
                                 num_workers=0),  # for Kaggle
-    'validation':
-    torch.utils.data.DataLoader(image_datasets['validation'],
+    'test':
+    torch.utils.data.DataLoader(image_datasets['test'],
                                 batch_size=32,
                                 shuffle=False,
                                 num_workers=0)  # for Kaggle
@@ -91,7 +86,7 @@ def train_model(model, criterion, optimizer, num_epochs=3):
         print('Epoch {}/{}'.format(epoch+1, num_epochs))
         print('-' * 10)
 
-        for phase in ['train', 'validation']:
+        for phase in ['train', 'test']:
             if phase == 'train':
                 model.train()
             else:
@@ -123,7 +118,7 @@ def train_model(model, criterion, optimizer, num_epochs=3):
                                                         epoch_loss,
                                                         epoch_acc))
         if(max_score<epoch_acc):
-          torch.save(model.state_dict(), '/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/models/weights(101).h5')
+          torch.save(model.state_dict(), '/content/drive/MyDrive/machine learning projects/monkey pox/weight/resnet(101).h5')
           print("model saved~")
           max_score=epoch_acc
     return model
@@ -151,18 +146,18 @@ model.fc = nn.Sequential(
                nn.ReLU(inplace=True),
                nn.Linear(128, 2)).to(device)
 
-model.load_state_dict(torch.load('/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/models/weights(101).h5'), strict=False)
+model.load_state_dict(torch.load('/content/drive/MyDrive/machine learning projects/monkey pox/weight/resnet(101).h5'), strict=False)
 
 import os
-test_mon= os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/test/Monkeypox")
+test_mon= os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/test/monkeypox")
 print(test_mon)
-test_oth= os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/test/Others")
+test_oth= os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/test/others")
 print(test_oth)
-classes = os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/test")
+classes = os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/test")
 print(classes)
 
-mon_list = [Image.open( "/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/" +"test/" +classes[0]+"/" + img_path) for img_path in test_mon]
-oth_list = [Image.open( "/content/drive/MyDrive/machine learning projects/training set/monkey pox/Fold1/Fold1/Fold1/" +"test/"+ classes[1]+"/" +img_path) for img_path in test_oth]
+mon_list = [Image.open( "/content/drive/MyDrive/machine learning projects/training set/monkey pox/test/monkeypox/" + img_path) for img_path in test_mon]
+oth_list = [Image.open( "/content/drive/MyDrive/machine learning projects/training set/monkey pox/test/others/" +img_path) for img_path in test_oth]
 print(oth_list)
 
 validation_batch1 = torch.stack([data_transforms['test'](img).to(device)
@@ -176,19 +171,18 @@ pred_logits_tensor
 pred_probs = F.softmax(pred_logits_tensor, dim=1).cpu().data.numpy()
 pred_probs
 
-pred_logits_tensor2 = model(validation_batch2)
-pred_logits_tensor2
-
-pred_probs2 = F.softmax(pred_logits_tensor2, dim=1).cpu().data.numpy()
-pred_probs2
-
 fig, axs = plt.subplots(len(mon_list), 1, figsize=(150, 100))
 for i, img in enumerate(mon_list):
     ax = axs[i]
     ax.axis('off')
-    ax.set_title("{:.0f}% monkeypox, {:.0f}% other".format(100*pred_probs[i,0],
+    ax.set_title("{:.0f}% other, {:.0f}% monkeypox".format(100*pred_probs[i,0],
                                                             100*pred_probs[i,1]))
     ax.imshow(img)
+
+pred_logits_tensor = model(validation_batch2)
+pred_logits_tensor
+pred_probs = F.softmax(pred_logits_tensor, dim=2).cpu().data.numpy()
+pred_probs
 
 fig, axs = plt.subplots(len(oth_list), 1, figsize=(150, 100))
 for i, img in enumerate(oth_list):
