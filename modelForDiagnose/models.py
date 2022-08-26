@@ -9,6 +9,8 @@ Original file is located at
 
 input_path = "/content/drive/MyDrive/machine learning projects/training set/monkey pox/"
 
+
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -67,7 +69,7 @@ dataloaders = {
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device
 
-model = models.resnet101(pretrained=True).to(device)
+model = models.resnet50(pretrained=True).to(device)
     
 for param in model.parameters():
     param.requires_grad = False   
@@ -118,7 +120,7 @@ def train_model(model, criterion, optimizer, num_epochs=3):
                                                         epoch_loss,
                                                         epoch_acc))
         if(max_score<epoch_acc):
-          torch.save(model.state_dict(), '/content/drive/MyDrive/machine learning projects/monkey pox/weight/resnet(101).h5')
+          torch.save(model.state_dict(), '/content/drive/MyDrive/machine learning projects/monkey pox/weight/resnet(50).h5')
           print("model saved~")
           max_score=epoch_acc
     return model
@@ -140,13 +142,13 @@ import torchvision
 from PIL import Image
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = models.resnet101(weights=None).to(device)
+model = models.resnet18(weights=None).to(device)
 model.fc = nn.Sequential(
                nn.Linear(2048, 128),
                nn.ReLU(inplace=True),
                nn.Linear(128, 2)).to(device)
 
-model.load_state_dict(torch.load('/content/drive/MyDrive/machine learning projects/monkey pox/weight/resnet(101).h5'), strict=False)
+model.load_state_dict(torch.load('/content/drive/MyDrive/machine learning projects/monkey pox/weight/resnet(50).h5'), strict=False)
 
 import os
 test_mon= os.listdir("/content/drive/MyDrive/machine learning projects/training set/monkey pox/test/monkeypox")
